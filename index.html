@@ -6,7 +6,7 @@
   <title>Control de Agua, Proteínas y Calorías</title>
   <style>
     :root{
-      --bg:#0f1724; /* dark background */
+      --bg:#0f1724;
       --card:#0b1220;
       --muted:#98a0b3;
       --glass: rgba(255,255,255,0.03);
@@ -33,23 +33,19 @@
     .val{font-weight:600;font-size:18px}
     .muted{color:var(--muted);font-size:13px}
 
-    /* Button list */
     .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
     .small-btn{background:var(--glass);border:1px dashed rgba(255,255,255,0.03);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
     .tiny{font-size:13px;padding:6px 10px}
     .edit-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;margin-left:6px}
 
-    /* progress bar wrappers */
     .bar-wrap{background:rgba(255,255,255,0.03);height:18px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.02)}
     .bar{height:100%;width:0%;transition:width 800ms cubic-bezier(.2,.8,.2,1);display:flex;align-items:center;padding-left:8px;font-weight:700}
     .bar span{font-size:13px}
 
-    /* specific colors */
     .bar.water{background:linear-gradient(90deg,var(--accent-blue), #64b6ff)}
     .bar.protein{background:linear-gradient(90deg,var(--accent-red), #ff7b88)}
     .bar.cal{background:linear-gradient(90deg,var(--accent-orange), #ffb078)}
 
-    /* list of foods/proteins */
     .list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
     .item{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:10px;background:rgba(255,255,255,0.02)}
     .item .meta{color:var(--muted);font-size:13px}
@@ -57,7 +53,6 @@
 
     footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
 
-    /* modal simple */
     .modal-bg{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:none;align-items:center;justify-content:center}
     .modal{background:var(--card);padding:18px;border-radius:12px;min-width:320px}
     .row{display:flex;gap:8px;align-items:center}
@@ -65,9 +60,14 @@
     label{font-size:13px;color:var(--muted)}
 
     .tiny-link{font-size:13px;color:var(--muted);cursor:pointer}
-
     .top-controls{display:flex;gap:8px;align-items:center}
     .pill{background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.02);font-size:13px}
+
+    /* date nav */
+    .date-nav{display:flex;gap:8px;align-items:center}
+    .dot-week{display:flex;gap:6px;align-items:center}
+    .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.06)}
+    .dot.active{box-shadow:0 0 0 3px rgba(255,255,255,0.03)}
   </style>
 </head>
 <body>
@@ -75,9 +75,14 @@
     <header>
       <div>
         <h1>Control de Agua · Proteínas · Calorías</h1>
-        <p class="lead">Minimal y moderno — personaliza botones, días y objetivos. Los datos se guardan en tu navegador.</p>
+        <p class="lead">Minimal y moderno — personaliza botones, días y objetivos. Los datos se guardan en tu navegador y se conserva el historial de los últimos 7 días.</p>
       </div>
       <div class="top-controls">
+        <div class="date-nav">
+          <button class="small-btn tiny" onclick="changeSelectedDate(-1)">◀</button>
+          <div class="pill" id="selected-date">Hoy</div>
+          <button class="small-btn tiny" onclick="changeSelectedDate(1)">▶</button>
+        </div>
         <div class="pill">Estado: local</div>
         <button class="small-btn tiny" onclick="resetAll()">Reiniciar</button>
       </div>
@@ -219,18 +224,31 @@
     /* --- Storage keys and defaults --- */
     const KEY = 'cont_salud_v1';
     const defaults = {
-      water: {amount:0,goal:2000,buttons:[{name:'Vaso',value:250},{name:'Chupito',value:50},{name:'Botella',value:500}],history:[]},
-      protein: {amount:0,goal:100,buttons:[{name:'Clara huevo',value:6},{name:'Pechuga',value:30}],list:[],dayGoals:{0:90,1:90,2:120,3:90,4:120,5:110,6:90},history:[]},
-      cal: {amount:0,goal:2000,buttons:[],list:[],history:[]}
+      water: {goal:2000,buttons:[{name:'Vaso',value:250},{name:'Chupito',value:50},{name:'Botella',value:500}],history:{},undo:[]},
+      protein: {goal:100,buttons:[{name:'Clara huevo',value:6},{name:'Pechuga',value:30}],list:[],dayGoals:{0:90,1:90,2:120,3:90,4:120,5:110,6:90},history:{},undo:[]},
+      cal: {goal:2000,buttons:[],list:[],history:{},undo:[]},
+      ui:{selectedDate:getDateKey(new Date())}
     };
 
     let state = loadState();
     let modalFor = null;
 
+    function formatDateKey(key){ // yyyy-mm-dd -> dd MMM
+      const d = new Date(key + 'T00:00:00');
+      return d.toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'});
+    }
+    function getDateKey(d){
+      const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
     function loadState(){
       try{
         const s = JSON.parse(localStorage.getItem(KEY));
         if(!s) return JSON.parse(JSON.stringify(defaults));
+        // ensure ui.selectedDate exists
+        s.ui = s.ui || {};
+        s.ui.selectedDate = s.ui.selectedDate || getDateKey(new Date());
         return Object.assign(JSON.parse(JSON.stringify(defaults)), s);
       }catch(e){return JSON.parse(JSON.stringify(defaults))}
     }
@@ -239,27 +257,37 @@
 
     /* --- Rendering --- */
     function render(){
+      // update selected date label
+      const sel = state.ui.selectedDate;
+      const todayKey = getDateKey(new Date());
+      document.getElementById('selected-date').textContent = (sel===todayKey) ? 'Hoy' : formatDateKey(sel);
+
       // Agua
-      document.getElementById('water-amount').textContent = state.water.amount;
+      const w = Number(state.water.history[sel] || 0);
+      document.getElementById('water-amount').textContent = w;
       document.getElementById('water-goal').value = state.water.goal;
-      updateBar('water', state.water.amount, state.water.goal, 'ml');
+      updateBar('water', w, state.water.goal, 'ml');
       renderButtons('water');
 
       // Proteinas
-      // compute today's goal from dayGoals
-      const today = new Date().getDay(); // 0 dom .. 6 sab
-      const pgoal = state.protein.dayGoals && state.protein.dayGoals[today] ? state.protein.dayGoals[today] : state.protein.goal;
-      document.getElementById('protein-amount').textContent = state.protein.amount;
+      const p = Number(state.protein.history[sel] || 0);
+      // today's protein goal may vary by weekday
+      const dayIndex = new Date(sel + 'T00:00:00').getDay();
+      const pgoal = (state.protein.dayGoals && state.protein.dayGoals[dayIndex]) ? state.protein.dayGoals[dayIndex] : state.protein.goal;
+      document.getElementById('protein-amount').textContent = p;
       document.getElementById('protein-goal').value = state.protein.goal;
-      updateBar('protein', state.protein.amount, pgoal, 'g');
+      updateBar('protein', p, pgoal, 'g');
       renderProteinList();
 
       // Calorias
-      document.getElementById('cal-amount').textContent = state.cal.amount;
+      const c = Number(state.cal.history[sel] || 0);
+      document.getElementById('cal-amount').textContent = c;
       document.getElementById('cal-goal').value = state.cal.goal;
-      updateBar('cal', state.cal.amount, state.cal.goal, 'kcal');
+      updateBar('cal', c, state.cal.goal, 'kcal');
       renderCalList();
 
+      // save and prune old days
+      pruneHistoryTo7Days();
       saveState();
     }
 
@@ -272,6 +300,7 @@
 
     function renderButtons(kind){
       const cont = document.getElementById(kind+'-buttons');
+      if(!cont) return;
       cont.innerHTML = '';
       const arr = state[kind].buttons || [];
       arr.forEach((b,i)=>{
@@ -317,24 +346,42 @@
       });
     }
 
-    /* --- Add values and undo --- */
+    /* --- Add values and undo (with per-day history) --- */
     function addValue(kind, value, label){
-      // push to history for undo
-      state[kind].history = state[kind].history || [];
-      state[kind].history.push({value,label,ts:Date.now()});
-      if(kind==='water') state.water.amount += Number(value);
-      if(kind==='protein') state.protein.amount += Number(value);
-      if(kind==='cal') state.cal.amount += Number(value);
+      const sel = state.ui.selectedDate;
+      state[kind].history = state[kind].history || {};
+      const prev = Number(state[kind].history[sel] || 0);
+      state[kind].history[sel] = prev + Number(value);
+
+      // push undo entry with date so undo affects same day
+      state[kind].undo = state[kind].undo || [];
+      state[kind].undo.push({value:Number(value),label,day:sel,ts:Date.now()});
+
+      pruneHistoryTo7Days();
       render();
     }
     function undo(kind){
-      const h = state[kind].history || [];
-      if(!h.length) return alert('Nada que deshacer');
-      const last = h.pop();
-      if(kind==='water') state.water.amount = Math.max(0, state.water.amount - last.value);
-      if(kind==='protein') state.protein.amount = Math.max(0, state.protein.amount - last.value);
-      if(kind==='cal') state.cal.amount = Math.max(0, state.cal.amount - last.value);
+      const u = state[kind].undo || [];
+      if(!u.length) return alert('Nada que deshacer');
+      const last = u.pop();
+      const day = last.day || state.ui.selectedDate;
+      state[kind].history[day] = Math.max(0, (state[kind].history[day] || 0) - last.value);
       render();
+    }
+
+    function pruneHistoryTo7Days(){
+      const keep = getLastNDates(7);
+      ['water','protein','cal'].forEach(k=>{
+        const h = state[k].history || {};
+        Object.keys(h).forEach(dateKey=>{ if(!keep.includes(dateKey)) delete h[dateKey]; });
+      });
+    }
+    function getLastNDates(n){
+      const arr = [];
+      const today = new Date(state.ui.selectedDate);
+      // ensure we return last n days ending on selectedDate
+      for(let i=n-1;i>=0;i--){ const d=new Date(today); d.setDate(d.getDate()-i); arr.push(getDateKey(d)); }
+      return arr;
     }
 
     /* --- Modal for adding/editing buttons or foods --- */
@@ -363,13 +410,11 @@
       document.getElementById('m-name').value = b.name;
       document.getElementById('m-value').value = b.value;
       document.getElementById('modal-bg').style.display='flex';
-      // override save
       document.getElementById('modal').querySelector('button:last-child').onclick = ()=>{
         const name = document.getElementById('m-name').value.trim();
         const val = Number(document.getElementById('m-value').value);
         if(!name || !val) return alert('Pon nombre y valor');
         state[kind].buttons[index] = {name,val};
-        // restore save button to default for next open
         document.getElementById('modal').querySelector('button:last-child').onclick = saveModal;
         closeModal(); render();
       };
@@ -394,6 +439,14 @@
       if(kind==='protein') state.protein.goal = Number(document.getElementById('protein-goal').value) || state.protein.goal;
       if(kind==='cal') state.cal.goal = Number(document.getElementById('cal-goal').value) || state.cal.goal;
       saveState(); render();
+    }
+
+    /* --- Date navigation --- */
+    function changeSelectedDate(offset){
+      const cur = new Date(state.ui.selectedDate + 'T00:00:00');
+      cur.setDate(cur.getDate() + offset);
+      state.ui.selectedDate = getDateKey(cur);
+      render();
     }
 
     /* --- Reset --- */
