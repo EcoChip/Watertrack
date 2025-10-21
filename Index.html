@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tracker - Agua, Calorías y Proteínas</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#60a5fa;--muted:#94a3b8;--glass: rgba(255,255,255,0.04)}
+    *{box-sizing:border-box}
+    body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; background:linear-gradient(180deg,#071024 0%, #07102a 100%); color:#e6eef8; padding:20px}
+    .wrap{max-width:980px;margin:0 auto}
+
+    header{display:flex;align-items:center;justify-content:space-between; gap:16px}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:4px 0 0;color:var(--muted)}
+
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:18px}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+
+    .section-title{font-size:13px;color:var(--muted);margin-bottom:8px}
+
+    /* Water box */
+    .water-big{display:flex;flex-direction:column;gap:10px}
+    .meter{background:var(--glass);border-radius:10px;padding:10px}
+    .meter-bar{height:18px;background:rgba(255,255,255,0.06);border-radius:10px;overflow:hidden}
+    .meter-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#3b82f6);transition:width 400ms}
+    .stats-row{display:flex;gap:10px;flex-wrap:wrap}
+    .stat{flex:1;background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;text-align:center}
+    .stat strong{display:block;font-size:18px}
+
+    .quick-buttons{display:flex;gap:8px;flex-wrap:wrap}
+    button.btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px;color:inherit;cursor:pointer}
+    button.btn:active{transform:translateY(1px)}
+
+    form.inline{display:flex;gap:8px;align-items:center}
+    input[type=number], input[type=text]{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit;min-width:90px}
+    input[type=number]::placeholder{color:var(--muted)}
+
+    /* Right column */
+    .small-list{display:flex;flex-direction:column;gap:8px}
+    .entry{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    .entry .meta{color:var(--muted);font-size:13px}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* responsive */
+    @media (max-width:880px){.grid{grid-template-columns:1fr} .wrap{padding:12px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Tracker: Agua · Calorías · Proteínas</h1>
+        <p class="lead">Registra rápido lo que bebes y comes. Guarda localmente por fecha.</p>
+      </div>
+      <div style="text-align:right">
+        <div id="todayDate" style="font-size:14px;color:var(--muted)"></div>
+        <div style="margin-top:6px"><button class="btn" id="resetDay">Reiniciar día</button></div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="card water-big">
+          <div class="section-title">Agua</div>
+          <div class="meter">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div><strong id="waterTotal">0 ml</strong><div style="color:var(--muted);font-size:13px">consumidos hoy</div></div>
+              <div style="text-align:right;color:var(--muted)"><div id="waterTargetDisplay">Objetivo: 2300 ml</div><div id="bottlesDisplay">0 botellas (500 ml)</div></div>
+            </div>
+            <div class="meter-bar"><div class="meter-fill" id="meterFill"></div></div>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat"><div style="color:var(--muted)">Vasos</div><strong id="glassesCount">0</strong></div>
+            <div class="stat"><div style="color:var(--muted)">Botellas 500ml</div><strong id="bottleCount">0</strong></div>
+            <div class="stat"><div style="color:var(--muted)">Meta diaria</div><strong><input id="waterTarget" type="number" value="2300" style="width:80px;background:transparent;border:none;color:inherit;text-align:center"></strong></div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:center;margin-top:10px">
+            <div class="quick-buttons">
+              <button class="btn" data-add="250">+ 250 ml</button>
+              <button class="btn" data-add="500">+ 500 ml</button>
+              <button class="btn" data-add="750">+ 750 ml</button>
+            </div>
+            <form id="customWaterForm" class="inline" onsubmit="return false;">
+              <input id="customWater" type="number" placeholder="ml" min="1">
+              <button class="btn" id="addCustomWater">Añadir</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="section-title">Calorías y Proteínas</div>
+          <form id="foodForm" class="inline" onsubmit="return false;">
+            <input id="foodName" type="text" placeholder="Alimento (opcional)">
+            <input id="calories" type="number" placeholder="kcal" min="0">
+            <input id="protein" type="number" placeholder="g proteína" min="0">
+            <button class="btn" id="addFood">Añadir</button>
+          </form>
+
+          <div style="margin-top:12px;display:flex;gap:10px">
+            <div class="stat" style="flex:1;text-align:left"><div style="color:var(--muted)">Calorías hoy</div><strong id="calTotal">0 kcal</strong></div>
+            <div class="stat" style="flex:1;text-align:left"><div style="color:var(--muted)">Proteínas hoy</div><strong id="protTotal">0 g</strong></div>
+          </div>
+
+          <div style="margin-top:10px">
+            <div class="section-title">Entradas del día</div>
+            <div id="entriesList" class="small-list"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="section-title">Resumen rápido</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="stat" style="min-width:160px"><div style="color:var(--muted)">Meta agua</div><strong id="summaryWaterGoal">2300 ml</strong></div>
+            <div class="stat" style="min-width:160px"><div style="color:var(--muted)">Porcentaje agua</div><strong id="summaryWaterPct">0%</strong></div>
+            <div class="stat" style="min-width:160px"><div style="color:var(--muted)">Calorías</div><strong id="summaryCal">0 kcal</strong></div>
+            <div class="stat" style="min-width:160px"><div style="color:var(--muted)">Proteínas</div><strong id="summaryProt">0 g</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <div class="section-title">Controles / Ajustes</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="color:var(--muted)">Tamaño de vaso (ml)</label>
+            <input id="glassSize" type="number" value="250">
+            <label style="color:var(--muted);margin-top:8px">Botella por defecto (ml)</label>
+            <input id="bottleSize" type="number" value="500">
+            <div style="margin-top:8px"><button class="btn" id="saveSettings">Guardar ajustes</button></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="section-title">Historial (últimos 7 días)</div>
+          <div id="historyList" class="small-list"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="section-title">Ayuda rápida</div>
+          <div style="color:var(--muted);font-size:13px">Usa los botones rápidos para añadir agua. Cada alimento puede llevar kcal y proteína. Los datos se guardan localmente por fecha y se mantienen hasta que los borres.</div>
+        </div>
+      </aside>
+    </div>
+
+    <footer>Hecho para ti — guarda y cierra la pestaña cuando quieras; los datos están en tu navegador.</footer>
+  </div>
+
+  <script>
+    // --- Helpers ---
+    const todayKey = () => {
+      const d = new Date();
+      return d.toISOString().slice(0,10); // YYYY-MM-DD
+    }
+
+    const storageKey = date => `tracker-${date}`;
+
+    const defaults = () => ({water:0, entries:[], meta:{waterGoal:2300, glassSize:250, bottleSize:500}});
+
+    function loadData(date){
+      const raw = localStorage.getItem(storageKey(date));
+      if(!raw) return defaults();
+      try { return JSON.parse(raw); } catch(e){ return defaults(); }
+    }
+    function saveData(date, data){ localStorage.setItem(storageKey(date), JSON.stringify(data)); }
+
+    // --- UI elements ---
+    const waterTotalEl = document.getElementById('waterTotal');
+    const meterFill = document.getElementById('meterFill');
+    const glassesCount = document.getElementById('glassesCount');
+    const bottleCount = document.getElementById('bottleCount');
+    const waterTargetInput = document.getElementById('waterTarget');
+    const waterTargetDisplay = document.getElementById('waterTargetDisplay');
+    const bottlesDisplay = document.getElementById('bottlesDisplay');
+    const entriesList = document.getElementById('entriesList');
+    const calTotal = document.getElementById('calTotal');
+    const protTotal = document.getElementById('protTotal');
+    const summaryWaterGoal = document.getElementById('summaryWaterGoal');
+    const summaryWaterPct = document.getElementById('summaryWaterPct');
+    const summaryCal = document.getElementById('summaryCal');
+    const summaryProt = document.getElementById('summaryProt');
+    const historyList = document.getElementById('historyList');
+    const todayDate = document.getElementById('todayDate');
+
+    let date = todayKey();
+    todayDate.textContent = new Date(date).toLocaleDateString();
+
+    // Load or initialize
+    let data = loadData(date);
+
+    // Apply saved settings from meta if exist
+    document.getElementById('glassSize').value = data.meta.glassSize || 250;
+    document.getElementById('bottleSize').value = data.meta.bottleSize || 500;
+    waterTargetInput.value = data.meta.waterGoal || 2300;
+
+    function render(){
+      // water
+      const w = data.water || 0;
+      const goal = Number(data.meta.waterGoal || 2300);
+      waterTotalEl.textContent = `${w} ml`;
+      const pct = Math.min(100, Math.round((w/goal)*100));
+      meterFill.style.width = pct + '%';
+      glassesCount.textContent = Math.floor(w / (Number(data.meta.glassSize)||250));
+      bottleCount.textContent = (w / (Number(data.meta.bottleSize)||500)).toFixed(2);
+      waterTargetDisplay.textContent = `Objetivo: ${goal} ml`;
+      bottlesDisplay.textContent = `${Math.ceil(goal/(Number(data.meta.bottleSize)||500))} botellas de ${data.meta.bottleSize || 500} ml`;
+
+      // calories & protein
+      const totalCal = data.entries.reduce((s,e)=> s + (e.cal||0), 0);
+      const totalProt = data.entries.reduce((s,e)=> s + (e.prot||0), 0);
+      calTotal.textContent = `${totalCal} kcal`;
+      protTotal.textContent = `${totalProt} g`;
+
+      summaryWaterGoal.textContent = `${goal} ml`;
+      summaryWaterPct.textContent = `${pct}%`;
+      summaryCal.textContent = `${totalCal} kcal`;
+      summaryProt.textContent = `${totalProt} g`;
+
+      // entries list
+      entriesList.innerHTML = '';
+      data.entries.slice().reverse().forEach((e, idx)=>{
+        const div = document.createElement('div'); div.className='entry';
+        const left = document.createElement('div');
+        left.innerHTML = `<strong>${e.name|| (e.water? 'Agua': 'Alimento')}</strong><div class="meta">${e.time}</div>`;
+        const right = document.createElement('div');
+        right.innerHTML = `${e.water? e.water + ' ml': ''} ${e.cal? e.cal + ' kcal': ''} ${e.prot? e.prot + ' g': ''} <button class='btn' data-idx='${data.entries.length-1-idx}'>Eliminar</button>`;
+        div.appendChild(left); div.appendChild(right);
+        entriesList.appendChild(div);
+      });
+
+      // history last 7 days
+      historyList.innerHTML = '';
+      for(let i=0;i<7;i++){
+        const d = new Date(); d.setDate(d.getDate()-i);
+        const key = d.toISOString().slice(0,10);
+        const obj = loadData(key);
+        const wv = obj.water || 0;
+        const cv = obj.entries.reduce((s,e)=> s + (e.cal||0), 0);
+        const pr = obj.entries.reduce((s,e)=> s + (e.prot||0), 0);
+        const row = document.createElement('div'); row.className='entry';
+        row.innerHTML = `<div>${key}</div><div class='meta'>${wv}ml · ${cv}kcal · ${pr}g</div>`;
+        historyList.appendChild(row);
+      }
+
+      // persist
+      saveData(date, data);
+    }
+
+    render();
+
+    // --- Events ---
+    document.querySelectorAll('[data-add]').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        const amount = Number(btn.getAttribute('data-add'));
+        addWater(amount, 'Btn');
+      })
+    });
+
+    document.getElementById('addCustomWater').addEventListener('click', ()=>{
+      const val = Number(document.getElementById('customWater').value || 0);
+      if(val>0) addWater(val, 'Custom');
+      document.getElementById('customWater').value = '';
+    });
+
+    function addWater(ml, source){
+      data.water = (data.water||0) + ml;
+      data.entries.push({time: new Date().toLocaleTimeString(), water: ml, name: 'Agua ('+source+')'});
+      render();
+    }
+
+    document.getElementById('addFood').addEventListener('click', ()=>{
+      const name = document.getElementById('foodName').value.trim();
+      const cal = Number(document.getElementById('calories').value || 0);
+      const prot = Number(document.getElementById('protein').value || 0);
+      if(cal<=0 && prot<=0) return alert('Añade kcal y/o proteína');
+      data.entries.push({time:new Date().toLocaleTimeString(), name, cal, prot});
+      render();
+      document.getElementById('foodName').value=''; document.getElementById('calories').value=''; document.getElementById('protein').value='';
+    });
+
+    // delete entry
+    entriesList.addEventListener('click', e=>{
+      if(e.target.matches('button[data-idx]')){
+        const idx = Number(e.target.getAttribute('data-idx'));
+        if(confirm('Eliminar entrada?')){
+          data.entries.splice(idx,1);
+          // recalc water in case we removed water entries
+          data.water = data.entries.reduce((s,en)=> s + (en.water||0), 0);
+          render();
+        }
+      }
+    });
+
+    // settings
+    document.getElementById('saveSettings').addEventListener('click', ()=>{
+      data.meta.glassSize = Number(document.getElementById('glassSize').value) || 250;
+      data.meta.bottleSize = Number(document.getElementById('bottleSize').value) || 500;
+      data.meta.waterGoal = Number(waterTargetInput.value) || 2300;
+      render();
+      alert('Ajustes guardados para este día');
+    });
+
+    // change water target inline
+    waterTargetInput.addEventListener('change', ()=>{
+      data.meta.waterGoal = Number(waterTargetInput.value) || 2300;
+      render();
+    });
+
+    // reset day
+    document.getElementById('resetDay').addEventListener('click', ()=>{
+      if(confirm('Reiniciar los datos del día?')){
+        data = defaults(); saveData(date,data); render();
+      }
+    });
+
+    // helper: when date changes (midnight) we could switch automatically if the page stays open
+    setInterval(()=>{
+      const d = todayKey();
+      if(d !== date){
+        date = d; data = loadData(date); todayDate.textContent = new Date(date).toLocaleDateString(); render();
+      }
+    }, 30000);
+  </script>
+</body>
+</html>
